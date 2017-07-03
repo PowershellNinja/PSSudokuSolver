@@ -18,7 +18,7 @@ $script:digits   = '123456789'.ToCharArray()
 $script:rows     = 'ABCDEFGHI'.ToCharArray()
 $script:cols     = $script:digits
 
-$squares  = Get-CrossResult -input1 $script:rows -input2 $script:cols
+$script:squares  = Get-CrossResult -input1 $script:rows -input2 $script:cols
 
 $unitList = $null
 
@@ -44,7 +44,7 @@ foreach($gRow in $gRows){
 
 $script:units = @{}
 
-foreach($s in $squares){
+foreach($s in $script:squares){
 
     $script:units[$s] = @()
 
@@ -64,7 +64,7 @@ foreach($s in $squares){
 
 $script:peers = @{}
 
-foreach($square in $squares){
+foreach($square in $script:squares){
     $script:peers[$square] = @()
 
     foreach($unit in $script:units[$square]){
@@ -77,7 +77,7 @@ foreach($square in $squares){
     }
 }
 
-$squaresCount = ($squares | Measure-Object).Count
+$squaresCount = ($script:squares | Measure-Object).Count
 
 if($squaresCount -ne 81){
     Write-Warning "Square Measures should be 81, but is: $squaresCount"
@@ -89,7 +89,7 @@ if($unitListCount -ne 27){
     Write-Warning "UnitList Measures should be 27, but is: $unitListCount"
 }
 
-foreach($s in $squares){
+foreach($s in $script:squares){
 
     $unitCount = ($script:units[$s] | Measure-Object).Count
 
@@ -99,7 +99,7 @@ foreach($s in $squares){
 
 }
 
-foreach($s in $squares){
+foreach($s in $script:squares){
 
     $peerCount = ($script:peers[$s] | Measure-Object).Count
 
@@ -131,11 +131,7 @@ if($peerResult -ne $null){
 }
 
 
-
-
-$gridString = "400000805030000000000700000020000060000080400000010000000603070500200000104000000"
-
-
+$gridString = "003020600900305001001806400008102900700000008006708200002609500800203009005010300"
 
 function Get-ParsedGridAsString{
 
@@ -152,17 +148,17 @@ function Get-ParsedGridAsString{
         $counter1 = 0
         $counter2 = 8
 
-        Write-Host ""
+        Write-Output ""
 
         foreach($number in (1..9)){
 
-            Write-Host $gridCharArray[$counter1..$counter2]
+            Write-Output $gridCharArray[$counter1..$counter2]
 
             $counter1 += 9
             $counter2 += 9
         }
 
-        Write-Host ""
+        Write-Output ""
 
     }
     elseif($outputType -eq "Enhanced"){
@@ -173,7 +169,7 @@ function Get-ParsedGridAsString{
 
         $horizontalTemplate = "- - - + - - - + - - -"
 
-        Write-Host ""
+        Write-Output ""
 
         foreach($number in (1..9)){
             
@@ -184,12 +180,12 @@ function Get-ParsedGridAsString{
 
             $outputString = "$firstPart | $secondPart | $thirdPart"
 
-            Write-Host $outputString
+            Write-Output $outputString
 
             $horizontalCounter++
 
             if($horizontalCounter -eq 3 -and $counter2 -lt 80){
-                Write-Host $horizontalTemplate
+                Write-Output $horizontalTemplate
                 $horizontalCounter = 0
             }
 
@@ -197,7 +193,7 @@ function Get-ParsedGridAsString{
             $counter2 += 9
         }
 
-        Write-Host ""
+        Write-Output ""
 
     }
 }
@@ -206,8 +202,7 @@ function Get-ParsedGridAsString{
 function Get-ValidGridHashTable{
 
     param(
-        $gridString,
-        $squares
+        $gridString        
     )
 
     $validChars = "0.-123456789".ToCharArray()
@@ -224,9 +219,9 @@ function Get-ValidGridHashTable{
 
     $outStringArray = $outString.ToCharArray()
 
-    foreach($sq in $squares){
+    foreach($sq in $script:squares){
 
-        $gridHT[$sq] = $outStringArray[$squares.IndexOf($sq)]
+        $gridHT[$sq] = $outStringArray[$script:squares.IndexOf($sq)]
 
     }
 
@@ -237,103 +232,93 @@ function Get-ValidGridHashTable{
 function Get-ParsedGrid{
 
     param(
-        $gridString,
-        $squares
+        $gridString        
     )
 
-    $gridHT = Get-ValidGridHashTable -gridString $gridString -squares $squares
+    $gridHT = Get-ValidGridHashTable -gridString $gridString
     
-    $values = @{}
+    $script:values = @{}
 
-    foreach($sq in $squares){
-        $values[$sq] = $script:digits -join ""
+    foreach($sq in $script:squares){
+        $script:values[$sq] = $script:digits -join ""
     }
 
-    foreach($sq in $squares){
+    foreach($sq in $script:squares){
 
         $currentGridHTValue = $gridHT[$sq]
 
-        if(($currentGridHTValue -in $script:digits) -and (-not(Start-ValueAssignment -values $values -square $sq -digit $currentGridHTValue))){
-            return $false
-        }
-        else{
-            return $values
+        if($currentGridHTValue -in $script:digits){
+            Start-ValueAssignment -square $sq -digit $currentGridHTValue
         }
     }
+
+    return $script:values
 }
 
 function Start-ValueAssignment{
 
-    param(
-        $values,
+    param(        
         $square,
         $digit
     )
 
-    $otherValues = $values[$square].Replace([string]$digit,"")
+    $otherValuesArray = $script:values[$square].Replace([string]$digit,"").ToCharArray()
 
-    foreach($value in $otherValues){
-
-            Start-ValueElimination -values $values -square $square -digit $value
-        
+    foreach($otherValue in $otherValuesArray){
+            Start-ValueElimination -searchSquare $square -digitToEliminate $otherValue    
     }
-
 
 }
 
 function Start-ValueElimination{
 
-    param(
-        $values,
-        $square,
-        $digit
+    param(        
+        $searchSquare,
+        $digitToEliminate
     )
 
-    if($digit -notin $values[$square].ToCharArray()){
-        return $values #Value alredy eliminated
+    if($digitToEliminate -notin $script:values[$searchSquare].ToCharArray()){
+        Write-Warning "Already eliminated: $digitToEliminate in $searchSquare"
+        return # Value already Eliminated, stop processing and go back
     }
 
-    $values[$square] = $values[$square].Replace([string]$digit,"")
+    $script:values[([string]$searchSquare)] = $script:values[([string]$searchSquare)].Replace([string]$digitToEliminate,"")
 
-    if(($values[$square].ToCharArray() | Measure-Object).Count -eq 0){
-        return $false #Contratiction: Removed the last value
+    if(($script:values[$searchSquare].ToCharArray() | Measure-Object).Count -eq 0){
+        throw "Contradiction: Removed the Last Value!" #Contratiction: Removed the last value
     }
-    elseif(($values[$square].ToCharArray() | Measure-Object).Count -eq 1){
+    elseif(($script:values[$searchSquare].ToCharArray() | Measure-Object).Count -eq 1){
 
-        $oneRemainingValue = $values[$square]
-        $squarePeers = $script:peers[$square].ToCharArray()
+        $oneRemainingValue = $script:values[$searchSquare]
+        $squarePeers = $script:peers[$searchSquare]
         foreach($peer in $squarePeers){
-            if(!(Start-ValueElimination -values $values -square $peer -digit $oneRemainingValue)){
-                return $false
-            }
-        }   
+            
+            Start-ValueElimination -searchSquare $peer -digitToEliminate $oneRemainingValue
+
+        }
     }
 
-    $squareUnits = $script:units[$square]
+    $squareUnits = $script:units[$searchSquare]
     foreach($unit in $squareUnits){
 
         [Array]$digitsPlaces = $null
 
         foreach($un in $unit){
 
-            if($digit -in $values[$un].ToCharArray()){
+            if($digitToEliminate -in $script:values[$un].ToCharArray()){
                 [Array]$digitsPlaces += $un
             }
-
         }
         
         if(($digitsPlaces | Measure-Object).Count -eq 0){
-            return $false #Contradiction: No Place for this Value
+            throw "Contradiction: No Place for this Value!" #Contradiction: No Place for this Value
         }
         elseif(($digitsPlaces | Measure-Object).Count -eq 1){
             
-            if(!(Start-ValueAssignment -values $values -square $digitsPlaces -digit $digit)){
-                return $false
-            }
-
+            Start-ValueAssignment -square $digitsPlaces -digit $digitToEliminate
         }
-        
     }
-    
-    return $values
 }
+
+Get-ParsedGrid -gridString $gridString
+
