@@ -126,6 +126,7 @@ function search(values){
   if (!values)
     return false;
   var min = 10, max = 1, sq = null;
+  
   for (var s in squares){
     if (values[squares[s]].length > max)
       max = values[squares[s]].length;
